@@ -1,25 +1,35 @@
+import os
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
 
-# PostgreSQL bağlantı URL'imiz
-# Format: postgresql://kullanici_adi:sifre@localhost:port/veritabanı_adi
-# Bizim şifremiz boş olduğu için iki nokta üst üste arasını boş bırakıyoruz.
-DATABASE_URL = "postgresql://LENOVO:@localhost:5432/fam_db"
+load_dotenv()
 
-# Veritabanı motorunu çalıştırıyoruz
-engine = create_engine(DATABASE_URL)
+DATABASE_URL = os.environ["DATABASE_URL"]
 
-# Veritabanında işlem yapmamızı sağlayacak oturum fabrikası
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=20,
+    max_overflow=40,
+    pool_timeout=30,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+)
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# İleride oluşturacağımız tabloların türeyeceği ana sınıf (Base)
-Base = declarative_base()
 
-# Backend isteklerinde veritabanı oturumunu güvenli açıp kapatacak fonksiyon
+class Base(DeclarativeBase):
+    pass
+
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
